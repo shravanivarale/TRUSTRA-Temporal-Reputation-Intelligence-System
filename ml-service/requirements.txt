@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+requests
+scikit-learn
+xgboost
+pandas
+numpy
+networkx
+neo4j
+psycopg2-binary
+redis
+faker
+shap
