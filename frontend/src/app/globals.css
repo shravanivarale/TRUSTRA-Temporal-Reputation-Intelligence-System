@@ -1,41 +1,43 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0f172a;
+  --background: #0b1120;
   --foreground: #f8fafc;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0f172a;
-    --foreground: #f8fafc;
-  }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: 'Inter', sans-serif;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.1) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+  background-attachment: fixed;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1e293b;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
+  background: #334155;
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #475569;
 }
 
 .glass-panel {
-  @apply bg-slate-900/50 backdrop-blur-md border border-slate-700/50;
+  @apply bg-slate-900/40 backdrop-blur-xl border border-white/5 shadow-xl;
+}
+
+.glass-card-hover {
+  @apply transition-all duration-300 hover:bg-slate-800/60 hover:border-white/10 hover:shadow-2xl hover:-translate-y-1;
 }

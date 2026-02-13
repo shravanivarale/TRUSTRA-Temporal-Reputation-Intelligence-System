@@ -1,63 +1,52 @@
-# TRUSTRA™ — Temporal Reputation Intelligence System
+# 🛡️ TRUSTRA: Temporal Reputation Intelligence System
+### *Web Weaver 2026 Hackathon Entry*
 
-> **"Trust, Quantified."**
+> **"Trust is not a static 5-star rating. It's a dynamic, living signal."**
 
-TRUSTRA is a next-generation reputation intelligence engine designed to compute dynamic Digital Trust Scores for online sellers. By leveraging behavioral modeling, graph-based fraud detection, and ML-driven review authenticity analysis, TRUSTRA provides a transparent and robust trust metric for the digital economy.
+---
 
-## 🚀 Key Features
+## 💡 The Problem
+In today's e-commerce landscape, **trust is broken**.
+-   ⭐⭐⭐⭐⭐ ratings are bought and sold in bulk.
+-   "Exit Scams" happen when sellers farm reputation and then vanish.
+-   Buyers have no way to see the *history* of a seller's behavior, only the current snapshot.
 
-*   **Dynamic Trust Scoring**: Real-time calculation based on behavioral data and temporal decay.
-*   **Graph Intelligence**: Detects collusion rings and fraud clusters using Neo4j.
-*   **Review Authenticity**: NLP-powered analysis to flag fake reviews and bursts.
-*   **Risk Radar**: Visualizes risk volatility and stability curves.
-*   **Explainable AI**: "Why This Score?" panel powered by SHAP values.
+## 🚀 The Solution: TRUSTRA
+TRUSTRA is an advanced **Reputation Intelligence Engine** that replaces the outdated 5-star system with a dynamic **Trust Score (0-1000)**. It uses Machine Learning and Graph Theory to analyze *behavior*, not just feedback.
 
-## 🛠 Tech Stack
+### Key Innovations
+1.  **⏱️ Temporal Engine**: We don't just look at the average; we look at the *volatility*. A seller who fluctuates wildly is flagged as "High Risk" even if their average is high.
+2.  **🕸️ Graph Intelligence**: Using **Network Analysis**, we detect "Collusion Rings"—groups of bots that artificially inflate scores.
+3.  **⚡ Real-Time Ops**: Updates are pushed instantly via WebSockets. No page refreshes needed.
 
-*   **Frontend**: Next.js 14 (App Router), TailwindCSS, Framer Motion, Recharts.
-*   **Backend**: Node.js (Express/FastAPI Gateway).
-*   **ML Service**: Python (FastAPI), Scikit-learn, XGBoost.
-*   **Graph Service**: Python (FastAPI), Neo4j.
-*   **Databases**: PostgreSQL, Neo4j, Redis.
-*   **Infrastructure**: Docker Compose.
+---
 
-## 📂 Project Structure
+## 🛠️ Tech Stack & Architecture
+We built a redundant, microservices-based architecture to demonstrate scalability:
 
-*   `/frontend`: Next.js dashboard.
-*   `/backend`: API Gateway.
-*   `/ml-service`: Trust engine and fraud models.
-*   `/graph-service`: Graph analysis service.
-*   `/data-simulation`: Synthetic data generation.
-*   `/docker`: Docker configuration.
+*   **Frontend**: Next.js 14, Tailwind CSS (Glassmorphism UI), Framer Motion.
+*   **Orchestrator Backend**: Node.js & Express API Gateway.
+*   **Intelligence Layer (ML)**: Python FastAPI with Pandas for statistical modeling.
+*   **Graph Layer**: Python NetworkX for relationship mapping and fraud cluster detection.
 
-## 🚦 Getting Started (No-Docker Mode)
+---
 
-### Prerequisites
-*   **Node.js** (v18+)
-*   **Python** (v3.9+)
-*   **Pip** (Python package manager)
+## 📸 Feature Highlights (Demo Guide)
+*   **Trust Score Card**: A credit-score-like rating for every seller.
+*   **Risk Radar**: Multivariate analysis showing exactly *where* a seller is failing (e.g., Identity vs. Delivery).
+*   **Fraud Cluster**: Visualizing the "Hidden Web" of fake connections.
 
-1.  **Clone the repository**:
+---
+
+## 🏃‍♂️ Quick Start (Evaluators)
+1.  **Prerequisites**: Python 3.9+, Node.js 18+.
+2.  **Run**:
     ```bash
-    git clone https://github.com/shravanivarale/TRUSTRA-Temporal-Reputation-Intelligence-System.git
-    cd TRUSTRA
+    start_all.bat
     ```
+    *(This script automatically installs dependencies, generates 20,000+ synthetic data points, and launches all 4 services.)*
+3.  **View**: Open `http://localhost:3000`.
 
-2.  **Start the System**:
-    *   Simply run the start script. It will install dependencies, generate synthetic data, and launch all services.
-    *   **Double-click `start_all.bat`** (Windows)
-    *   *Or run via terminal:*
-    ```bash
-    .\start_all.bat
-    ```
+---
 
-3.  **Access Dashboard**:
-    *   Open [http://localhost:3000](http://localhost:3000)
-    *   The frontend will connect to the local backend services automatically.
-
-3.  **Run Services**:
-    *   See individual `README.md` in each service directory for details.
-
-## 📜 License
-
-MIT
+*Built with ❤️ for Web Weaver 2026*

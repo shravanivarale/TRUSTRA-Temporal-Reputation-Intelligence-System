@@ -4,11 +4,19 @@ import csv
 import uuid
 from datetime import datetime, timedelta
 
-fake = faker.Faker()
+fake = faker.Faker('en_IN')
 
-NUM_SELLERS = 1000  # Start small for dev, scale to 10k later
+NUM_SELLERS = 1000
 NUM_BUYERS = 5000
 NUM_TRANSACTIONS = 20000
+
+def random_date(start_year=2022):
+    start = datetime(start_year, 1, 1)
+    end = datetime.now()
+    delta = end - start
+    int_delta = (delta.days * 24 * 60 * 60) + delta.seconds
+    random_second = random.randrange(int_delta)
+    return start + timedelta(seconds=random_second)
 
 sellers = []
 buyers = []
@@ -20,7 +28,7 @@ for _ in range(NUM_SELLERS):
     sellers.append({
         "id": str(uuid.uuid4()),
         "name": fake.company(),
-        "joined_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat(),
+        "joined_at": random_date(2022).isoformat(),
         "baseline_trust_score": random.uniform(400, 800)
     })
 
@@ -29,7 +37,7 @@ for _ in range(NUM_BUYERS):
     buyers.append({
         "id": str(uuid.uuid4()),
         "name": fake.name(),
-        "joined_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat()
+        "joined_at": random_date(2023).isoformat()
     })
 
 print("Generating Transactions...")
@@ -42,7 +50,15 @@ for _ in range(NUM_TRANSACTIONS):
         weights=[0.85, 0.05, 0.05, 0.05]
     )[0]
     
-    timestamp = fake.date_time_between(start_date=seller["joined_at"], end_date="now")
+    # Transaction date after seller joined
+    seller_joined = datetime.fromisoformat(seller["joined_at"])
+    if seller_joined > datetime.now(): seller_joined = datetime.now() - timedelta(days=1)
+    
+    delta = datetime.now() - seller_joined
+    if delta.days < 0: delta = timedelta(days=0)
+    
+    random_days = random.randint(0, max(1, delta.days))
+    timestamp = seller_joined + timedelta(days=random_days)
     
     transactions.append({
         "id": txn_id,

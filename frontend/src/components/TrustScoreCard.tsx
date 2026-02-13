@@ -1,9 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
-import { ShieldCheck, ShieldAlert, Shield } from "lucide-react";
-import clsx from "clsx";
+import { ShieldCheck, ShieldAlert } from "lucide-react";
 
 interface TrustScoreCardProps {
     score: number;
@@ -11,73 +9,68 @@ interface TrustScoreCardProps {
 }
 
 export function TrustScoreCard({ score, loading }: TrustScoreCardProps) {
-    const [displayScore, setDisplayScore] = useState(0);
-
-    useEffect(() => {
-        if (loading) return;
-        const controls = { value: displayScore };
-        // Simple animation logic - ideally use framer-motion useSpring or similar
-        const duration = 1500;
-        const start = performance.now();
-
-        const animate = (time: number) => {
-            const timeFraction = (time - start) / duration;
-            if (timeFraction > 1) {
-                setDisplayScore(score);
-                return;
-            }
-            const progress = 1 - Math.pow(1 - timeFraction, 3); // easeOutCubic
-            setDisplayScore(Math.floor(progress * score));
-            requestAnimationFrame(animate);
-        };
-
-        requestAnimationFrame(animate);
-    }, [score, loading]);
+    const getScoreColor = (s: number) => {
+        if (s >= 750) return "text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.5)]";
+        if (s >= 500) return "text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]";
+        return "text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]";
+    };
 
     const getStatus = (s: number) => {
-        if (s >= 750) return { label: "Excellent", color: "text-emerald-400", icon: ShieldCheck };
-        if (s >= 500) return { label: "Good", color: "text-yellow-400", icon: Shield };
-        return { label: "High Risk", color: "text-red-500", icon: ShieldAlert };
+        if (s >= 750) return { label: "EXCELLENT", icon: ShieldCheck, color: "text-emerald-400" };
+        if (s >= 500) return { label: "MODERATE RISK", icon: ShieldAlert, color: "text-yellow-400" };
+        return { label: "HIGH RISK", icon: ShieldAlert, color: "text-red-500" };
     };
 
     const status = getStatus(score);
     const Icon = status.icon;
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="p-6 bg-slate-900/50 border border-slate-700 rounded-xl backdrop-blur-sm relative overflow-hidden"
-        >
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Icon size={120} />
-            </div>
+        <div className="relative group">
+            {/* Glow Effect */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-emerald-600 rounded-2xl blur opacity-30 group-hover:opacity-75 transition duration-1000"></div>
 
-            <h3 className="text-slate-400 text-sm font-medium uppercase tracking-wider mb-2">
-                Digital Trust Score
-            </h3>
-
-            <div className="flex items-end gap-2 mb-4">
-                <span className={clsx("text-6xl font-bold font-mono tracking-tight", status.color)}>
-                    {displayScore}
-                </span>
-                <span className="text-slate-500 text-lg mb-2">/ 1000</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-                <div className={clsx("h-2 w-2 rounded-full animate-pulse",
-                    score >= 750 ? "bg-emerald-400" : score >= 500 ? "bg-yellow-400" : "bg-red-500"
-                )} />
-                <span className={clsx("text-lg font-medium", status.color)}>
-                    {status.label}
-                </span>
-            </div>
-
-            {loading && (
-                <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center backdrop-blur-sm">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="relative glass-panel p-6 rounded-2xl h-full flex flex-col justify-between bg-slate-900/90">
+                <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-slate-400 font-medium text-sm tracking-wider uppercase">Current Trust Score</h3>
+                    <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className={`p-2 rounded-full bg-slate-800/50 ${status.color} border border-slate-700`}
+                    >
+                        <Icon size={20} />
+                    </motion.div>
                 </div>
-            )}
-        </motion.div>
+
+                <div className="flex items-end gap-3 mb-2">
+                    {loading ? (
+                        <div className="animate-pulse h-16 w-32 bg-slate-800 rounded"></div>
+                    ) : (
+                        <motion.div
+                            key={score}
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            className={`text-6xl font-bold font-mono tracking-tighter ${getScoreColor(score)}`}
+                        >
+                            {Math.round(score)}
+                        </motion.div>
+                    )}
+                    <span className="text-slate-500 text-sm mb-2">/ 1000</span>
+                </div>
+
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mt-4 shadow-inner">
+                    <motion.div
+                        className={`h-full ${score >= 750 ? "bg-gradient-to-r from-emerald-500 to-cyan-500" : score >= 500 ? "bg-gradient-to-r from-yellow-500 to-orange-500" : "bg-gradient-to-r from-red-500 to-pink-600"}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(score / 1000) * 100}%` }}
+                        transition={{ duration: 1.5, ease: "easeOut" }}
+                    />
+                </div>
+
+                <div className="mt-4 flex justify-between items-center text-xs text-slate-400">
+                    <span>Updated: Just now</span>
+                    <span className={`${status.color} font-bold tracking-widest`}>{status.label}</span>
+                </div>
+            </div>
+        </div>
     );
 }
