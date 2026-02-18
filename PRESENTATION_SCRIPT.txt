@@ -1,0 +1,454 @@
+================================================================================
+              TRUSTRA — 10-MINUTE PRESENTATION SCRIPT
+         Temporal Reputation Intelligence System | Web Weaver 2026
+================================================================================
+
+  Total Time: 10 minutes
+  Format:     Storyline → Product Intro → Live Demo → Real-Time Scenarios → Close
+  Tip:        Practice at least 3 times. Cut anything that feels slow.
+
+
+
+================================================================================
+  FLOW EVALUATION & STRATEGIC NOTES (Read This First)
+================================================================================
+
+  YOUR PROPOSED FLOW:
+    Problem Story → Introduce TRUSTRA → Hook → Demo → Data → Features → Real-Time
+
+  MY RECOMMENDED ADJUSTMENTS:
+
+  ✅ KEEP: Starting with an impactful story — this is the strongest opener.
+  ✅ KEEP: Smooth transition into "That's why we built TRUSTRA" — classic and effective.
+  ✅ KEEP: Feature-by-feature with expandable deep-dive — shows technical depth.
+
+  ⚠️  CHANGE 1: Move "Data Explanation" BEFORE the demo, but make it only 30 sec.
+      WHY: If you explain data during the demo, it breaks the demo momentum.
+      Instead, say "Here's what's under the hood" quickly, THEN demo.
+
+  ⚠️  CHANGE 2: Merge 3 real-time scenarios into 2 scenarios (combine Scenario 1 
+      and 3) to save ~90 seconds. A "good transaction" and a "dispute" are similar 
+      in flow — just show the dispute AFTER the good one on the SAME seller.
+      The fraud burst scenario is the WOW moment — give it more time.
+
+  ⚠️  CHANGE 3: Put the Hook INSIDE the story, not after the intro. 
+      WHY: If the hook comes after you've already introduced the product,
+      the audience has already formed their opinion. The hook needs to land
+      while they're still in the "problem" mindset.
+
+  FINAL OPTIMIZED FLOW (10 min):
+    ┌───────────────────────────────────────────────────────────────┐
+    │  [0:00–1:30]  Story + Problem + Hook (embedded)              │
+    │  [1:30–2:30]  "Introducing TRUSTRA" — What it is             │
+    │  [2:30–3:00]  Data & Architecture overview (30 sec)          │
+    │  [3:00–6:00]  Dashboard Demo — Feature by Feature            │
+    │  [6:00–9:00]  Real-Time Scenarios (2 scenarios, not 3)       │
+    │  [9:00–10:00] Close — Future Vision + Call to Action         │
+    └───────────────────────────────────────────────────────────────┘
+
+
+
+████████████████████████████████████████████████████████████████████████████████
+  SECTION 1: THE STORY + PROBLEM + HOOK                         [0:00 — 1:30]
+████████████████████████████████████████████████████████████████████████████████
+
+  ─── THE OPENING (Speak slowly with weight) ───
+
+  "Imagine this.
+
+  You're buying a phone online. You find a seller with 4.8 stars, 
+  thousands of reviews, glowing feedback. You trust the rating. You pay.
+
+  Two weeks later — no phone. The seller has vanished.
+
+  You leave a 1-star review. You report them. But the damage is done.
+  And here's the worst part — by the time you left that review, 
+  200 other people had already been scammed. Because the rating... 
+  still said 4.8 stars."
+
+  [PAUSE — let it sink in for 2 seconds]
+
+  ─── THE HOOK (Land it hard) ───
+
+  "This isn't a hypothetical. In 2024, the FTC reported $12.5 billion 
+  lost to online marketplace fraud. And the #1 enabler? Static rating 
+  systems that don't understand TIME.
+
+  A seller can farm 5-star reviews for three months, then exit scam 
+  in week four. And the rating system? It still shows 4.8 stars. 
+  Because a simple average doesn't decay. It doesn't detect patterns. 
+  It doesn't understand that TRUST IS TEMPORAL."
+
+  [PAUSE — transition voice to confident, solution-oriented]
+
+  ─── THE BRIDGE ───
+
+  "That's exactly the problem we set out to solve."
+
+
+
+████████████████████████████████████████████████████████████████████████████████
+  SECTION 2: INTRODUCING TRUSTRA                                [1:30 — 2:30]
+████████████████████████████████████████████████████████████████████████████████
+
+  ─── THE REVEAL ───
+
+  "We built TRUSTRA — the Temporal Reputation Intelligence System.
+
+  TRUSTRA replaces the broken 5-star rating with a DYNAMIC Trust Score 
+  from 0 to 1000, powered by machine learning and graph intelligence.
+
+  It doesn't just look at WHAT your rating is — 
+  it analyzes WHEN your behavior changed, 
+  HOW your reviews arrived, 
+  and WHO is connected to you in the network.
+
+  Three engines work together:"
+
+  [Count on fingers or show a quick slide]
+
+  "ONE  — A Behavioral Engine that tracks delivery, disputes, and refunds.
+   TWO  — An Authenticity Model that detects fake review bursts and spam.
+   THREE — A Graph Intelligence Engine that maps buyer-seller networks 
+           and detects collusion rings."
+
+  "And the entire system updates in REAL TIME. Not once a day. Not once 
+  an hour. The moment a transaction happens, the trust score recalculates."
+
+  [TRANSITION]
+
+  "Let me show you how it works."
+
+
+
+████████████████████████████████████████████████████████████████████████████████
+  SECTION 3: DATA & ARCHITECTURE (Quick Overview)               [2:30 — 3:00]
+████████████████████████████████████████████████████████████████████████████████
+
+  ─── KEEP THIS FAST — 30 SECONDS MAX ───
+
+  "Before I jump into the dashboard, a quick word on the data.
+
+  We generated a synthetic dataset of over 20,000 data points — 
+  1,000 sellers, 5,000 buyers, thousands of transactions and reviews. 
+  We used the Faker library to simulate realistic Indian marketplace data.
+
+  And we intentionally injected fraud patterns — burst reviews, 
+  collusion networks — so the system has something real to detect.
+
+  The system runs on a microservices architecture:"
+
+  [Say fast, don't dwell]
+
+  "Next.js frontend, Node.js gateway, Python ML service with FastAPI, 
+  and a separate Graph service using NetworkX — all communicating 
+  through REST APIs and WebSockets."
+
+  "Now let's see it in action."
+
+
+
+████████████████████████████████████████████████████████████████████████████████
+  SECTION 4: DASHBOARD DEMO — FEATURE BY FEATURE               [3:00 — 6:00]
+████████████████████████████████████████████████████████████████████████████████
+
+  ─── OPEN THE DASHBOARD ───
+  [Screen should already be at http://localhost:3000 before you start]
+
+  "This is the TRUSTRA dashboard."
+
+  [Let the audience see the full glassmorphism UI for 3 seconds — the
+   visual impact matters]
+
+  "Everything you see here is LIVE data, computed in real-time from 
+  our ML and Graph engines."
+
+
+  ─── FEATURE 1: TRUST SCORE CARD [~45 sec] ───
+  [Click the seller dropdown → Select a HIGH-SCORE seller like 
+   "Vora, Kulkarni and Sahota" or anyone with score > 750]
+
+  "Let's start with Trust Score — the centerpiece.
+
+  This seller has a score of [read the number] out of 1000. 
+  You'll notice it's color-coded — green for trustworthy, 
+  yellow for caution, red for high risk.
+
+  Unlike a 5-star rating, this score is COMPOSITE — it's the weighted 
+  result of behavioral analysis, review authenticity, temporal decay, 
+  and graph penalties. 
+
+  [PLAN: When we click/expand this card, it fills the screen and shows 
+  the complete score breakdown — every weight, every sub-metric.]"
+
+  "The formula: Score = Behavioral × 0.6 + Authenticity × 0.4, 
+  adjusted by risk decay and graph penalties."
+
+
+  ─── FEATURE 2: RISK RADAR [~45 sec] ───
+  [Point to / hover over the Risk Radar chart]
+
+  "Next — the Risk Radar. This is a multivariate analysis across 
+  five dimensions: Returns, Disputes, Transaction Velocity, 
+  Identity Risk, and Fraud Probability.
+
+  For this healthy seller, notice the shape is balanced — no single 
+  axis is spiking. That's the profile of a consistent, trustworthy seller.
+
+  [PLAN: Expanded view will show each axis with the exact score, 
+  historical comparison, and what triggers each risk factor.]"
+
+  [Briefly hover over data points to show tooltips]
+
+
+  ─── FEATURE 3: TRUST TIMELINE [~45 sec] ───
+  [Point to the Trust Timeline graph]
+
+  "This is the Temporal Engine — the feature that makes TRUSTRA unique.
+
+  We track trust scores OVER TIME. This timeline shows how a seller's 
+  reputation has evolved. You can see trends — a steady climb means 
+  consistent performance. A sudden drop could indicate something went wrong.
+
+  This is what catches the exit scam pattern we talked about earlier. 
+  A seller farming reviews would show a suspiciously flat line at the top, 
+  followed by a cliff drop when the scam begins.
+
+  [PLAN: Expanded view will show the full temporal trajectory with 
+  annotated events — 'review burst here', 'dispute spike here'.]"
+
+
+  ─── FEATURE 4: GRAPH INTELLIGENCE / FRAUD CLUSTER [~30 sec] ───
+  [Point to the Graph Intelligence panel]
+
+  "And finally — Graph Intelligence. This is our detective.
+
+  Using NetworkX, we build a network graph of all buyer-seller 
+  relationships. We run clustering coefficient analysis and 
+  community detection to find collusion rings — groups of buyers 
+  who suspiciously review the exact same sellers.
+
+  For this clean seller, you'll see low collusion risk. 
+  But let me show you what happens with a suspicious one..."
+
+
+  ─── FEATURE 5: WHY THIS SCORE [~15 sec] ───
+  [Point to the "Why This Score?" panel]
+
+  "And this panel — 'Why This Score' — is the explainability layer. 
+  Every factor that contributed to the score is listed here. 
+  Full transparency. No black box."
+
+
+
+████████████████████████████████████████████████████████████████████████████████
+  SECTION 5: REAL-TIME SCENARIOS — PROVING IT WORKS             [6:00 — 9:00]
+████████████████████████████████████████████████████████████████████████████████
+
+  ─── TRANSITION ───
+
+  "Now here's where it gets exciting. Everything I showed you so far 
+  was the STATIC analysis. But TRUSTRA is built for REAL TIME.
+
+  Let me prove it — live, right now."
+
+
+  ─── SCENARIO 1: THE HONEST SELLER + DISPUTE IMPACT [~90 sec] ───
+  
+  [Keep the same mid-range seller selected (score ~600-800)]
+
+  "Let's take this seller with a score of [read score]. 
+  I'm going to submit a real transaction — right now, through our 
+  Live Transaction Simulator."
+
+  [Open the Simulate Transaction panel]
+  [Fill in: Amount = 500, Status = completed, Delivery = 2 days, 
+   Rating = 5 stars, Review = "Excellent product, fast shipping!"]
+
+  "I'm submitting a successful transaction — completed, fast delivery, 
+  5-star review."
+
+  [Click SUBMIT]
+
+  "Watch the score."
+
+  [PAUSE — wait for the WebSocket to push the update. The Trust Score 
+   card should animate upward. The timeline should add a new point.]
+
+  "The score just went UP. The timeline added a new data point. 
+  The behavioral metrics improved. All in real-time."
+
+  [Now submit ANOTHER transaction with bad data]
+  [Fill in: Status = disputed, Rating = 1 star, Review = "Never received"]
+
+  "Now watch what happens when this same seller gets a dispute."
+
+  [Click SUBMIT]
+
+  "There — the score drops. The Volatility index rises. The Risk Radar 
+  shifts. One disputed transaction meaningfully impacts the profile, 
+  and TRUSTRA captures it INSTANTLY."
+
+  "This is why temporal tracking matters — because a seller's behavior 
+  TODAY matters more than their average from six months ago."
+
+
+  ─── SCENARIO 2: THE FRAUD SELLER GETS CAUGHT [~90 sec] ───
+
+  [This is your WOW moment — deliver it with energy]
+
+  [Open dropdown → Select FRAUD_SUSPECT_LTD]
+
+  "Now let me show you the most powerful feature of TRUSTRA.
+
+  This is FRAUD_SUSPECT_LTD — a seller we seeded into the data 
+  with suspicious patterns. Notice the score is already lower, 
+  and the Graph Intelligence panel shows elevated collusion risk."
+
+  "Now I'm going to simulate what a real fraud attack looks like. 
+  I'll submit rapid-fire transactions — 5 to 10 identical 5-star 
+  reviews in quick succession."
+
+  [Submit rapidly — 5-7 transactions with:]
+  [Status = completed, Rating = 5, Review = "Amazing seller! Best ever!" 
+   (same text each time), Delivery = 1 day]
+
+  [Submit them one after another quickly — click, click, click]
+
+  "I just flooded this seller with identical 5-star reviews. 
+  On Amazon, on Flipkart — this would boost the rating to 4.9 stars.
+
+  But watch what TRUSTRA does."
+
+  [PAUSE — let the WebSocket updates come through]
+
+  "The Authenticity Model detected a REVIEW BURST — too many reviews 
+  in a short window. The score is DROPPING, not rising. 
+
+  Look at the 'Why This Score' panel — it now shows 
+  'Review Burst Detected' as a penalty factor.
+
+  And the Graph Intelligence? It's flagging elevated collusion risk 
+  because the network pattern is suspicious."
+
+  "THIS is what TRUSTRA does that star ratings CANNOT. 
+  It punishes manipulation in REAL TIME."
+
+
+
+████████████████████████████████████████████████████████████████████████████████
+  SECTION 6: CLOSING — VISION + CALL TO ACTION                 [9:00 — 10:00]
+████████████████████████████████████████████████████████████████████████████████
+
+  [Step back from the demo — speak directly to the audience]
+
+  "So what you've just seen is a system that:
+   — Replaces static 5-star ratings with a dynamic 0-to-1000 trust score.
+   — Uses machine learning to detect behavioral anomalies.
+   — Uses graph intelligence to uncover fraud networks.
+   — Updates in real-time — not in batches, not once a day.
+   — And explains every score decision transparently."
+
+  ─── FUTURE VISION (15 seconds) ───
+
+  "Where does TRUSTRA go from here?
+
+  Blockchain integration — putting reputation scores on-chain for 
+  immutable, tamper-proof trust histories.
+
+  LLM-powered review analysis — using large language models to detect 
+  AI-generated fake reviews, not just pattern matching.
+
+  And federated learning — training our models without raw user data 
+  ever leaving the device."
+
+  ─── CLOSING LINE ───
+
+  "We believe the future of e-commerce isn't built on stars. 
+  It's built on SIGNALS.
+
+  TRUSTRA makes trust visible, quantifiable, and temporal.
+
+  Thank you."
+
+  [END — 10:00]
+
+
+
+================================================================================
+  TIME BUDGET SUMMARY
+================================================================================
+
+  Section                              Time        Cumulative
+  ───────────────────────────────────  ──────────  ──────────
+  1. Story + Problem + Hook            1 min 30s     1:30
+  2. Introducing TRUSTRA               1 min 00s     2:30
+  3. Data & Architecture               0 min 30s     3:00
+  4. Feature-by-Feature Demo           3 min 00s     6:00
+  5. Real-Time Scenarios (×2)          3 min 00s     9:00
+  6. Closing + Vision                  1 min 00s    10:00
+  ───────────────────────────────────  ──────────  ──────────
+  TOTAL                               10 min 00s
+
+
+================================================================================
+  EMERGENCY TIME CUTS (If running over)
+================================================================================
+
+  If you're at 7:00 and haven't started real-time scenarios yet:
+    → SKIP Scenario 1 entirely (honest seller + dispute).
+    → Go straight to Scenario 2 (fraud burst) — it's the WOW moment.
+    → That saves you ~90 seconds.
+
+  If you're at 8:30 and haven't closed:
+    → Cut the Future Vision section.
+    → Jump to the final line: "TRUSTRA makes trust visible, 
+       quantifiable, and temporal. Thank you."
+
+  If you're at 5:00 and still on features:
+    → Skip the expanded-view mentions. Just describe each feature 
+       in 1-2 sentences and move to real-time scenarios.
+
+
+================================================================================
+  PRE-PRESENTATION CHECKLIST
+================================================================================
+
+  [ ] Run start_all.bat at least 5 minutes before presenting
+  [ ] Verify http://localhost:3000 loads the dashboard
+  [ ] Browser zoom set to 100-110%
+  [ ] Select a mid-range seller BEFORE starting (have it ready)
+  [ ] Know where FRAUD_SUSPECT_LTD is in the dropdown
+  [ ] Test the Simulate Transaction panel — submit one test transaction
+  [ ] Close all notifications, Slack, email, etc.
+  [ ] Turn off Windows notification sounds
+  [ ] Have this script printed or on a second screen
+  [ ] Practice the opening story at least 3 times out loud
+  [ ] Time yourself — aim to finish Section 4 by 6:00
+
+
+================================================================================
+  SPEAKING TIPS
+================================================================================
+
+  • The OPENING STORY is your most important 60 seconds. 
+    Speak SLOWLY. Make eye contact (or look at the camera). 
+    Don't rush to the solution.
+
+  • When transitioning to the demo, STOP TALKING for 2-3 seconds 
+    and let the dashboard's visual impact land. Silence is powerful.
+
+  • During real-time demos, say "WATCH" before the score changes. 
+    This primes the audience to look at the right spot.
+
+  • If something breaks during the demo — OWN IT. 
+    Say: "That's the reality of real-time systems at work" and move on. 
+    Never apologize for more than 3 seconds.
+
+  • End STRONG. The last line they hear is the one they remember. 
+    Deliver the closing line like you mean it.
+
+
+================================================================================
+                            END OF SCRIPT
+================================================================================
