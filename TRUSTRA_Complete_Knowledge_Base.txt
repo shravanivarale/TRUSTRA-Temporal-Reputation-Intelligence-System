@@ -1,0 +1,602 @@
+================================================================================
+   TRUSTRA™ — COMPLETE PROJECT KNOWLEDGE BASE
+   Temporal Reputation Intelligence System
+   Prepared for: Web Weaver 2026 Hackathon — Cross-Question Preparation
+================================================================================
+
+
+================================================================================
+1. WHAT IS TRUSTRA? (Elevator Pitch)
+================================================================================
+
+TRUSTRA is a real-time seller reputation intelligence system that goes beyond 
+simple star ratings. It uses machine learning, graph analysis, and temporal 
+decay algorithms to compute a dynamic trust score (0–1000) for online sellers.
+
+Think of it like a "credit score for e-commerce sellers" — but smarter because 
+it considers time, behavior patterns, review authenticity, and hidden network 
+connections between buyers and sellers.
+
+
+================================================================================
+2. PROBLEM WE ARE SOLVING
+================================================================================
+
+Current e-commerce platforms use STATIC ratings (like 4.5 stars). These have 
+3 major flaws:
+
+1. STALE DATA: A seller who was great 2 years ago but terrible now still shows 
+   4.5 stars. Old reviews dilute recent bad performance.
+
+2. FAKE REVIEWS: Sellers can buy fake positive reviews. Simple average ratings 
+   cannot detect coordinated fake review campaigns.
+
+3. NO NETWORK ANALYSIS: If 10 "buyers" are all connected and only buy from 
+   each other, that's a fraud ring. Star ratings don't see this.
+
+TRUSTRA solves all three with:
+- Temporal Decay (old data matters less)
+- Authenticity Detection (catches fake review bursts)
+- Graph Intelligence (finds fraud rings in buyer-seller networks)
+
+
+================================================================================
+3. COMPLETE ARCHITECTURE (How the System Works)
+================================================================================
+
+The system has 4 microservices + 1 database:
+
+  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+  │   Frontend   │────>│   Backend    │────>│  ML Service   │
+  │  (Next.js)   │<────│  (Node.js)   │<────│  (FastAPI)    │
+  │  Port 3000   │     │  Port 5000   │     │  Port 8000    │
+  └──────────────┘     └──────┬───────┘     └──────────────┘
+                              │
+                              │────>┌──────────────┐
+                              │<────│ Graph Service │
+                                    │  (FastAPI)    │
+                                    │  Port 8001    │
+                                    └──────────────┘
+                                           │
+                              ┌─────────────┴─────────────┐
+                              │      Supabase (PostgreSQL) │
+                              │  Cloud Database            │
+                              └────────────────────────────┘
+
+DATA FLOW (step by step):
+1. User selects a seller on the dashboard (Frontend).
+2. Frontend calls Backend API: GET /api/trust/{sellerId}
+3. Backend calls ML Service: POST /compute-trust with seller_id
+4. ML Service queries Supabase for that seller's transactions and reviews.
+5. ML Service runs 3 engines (Behavioral, Authenticity, Risk) and returns score.
+6. Backend calls Graph Service: GET /graph/{sellerId}
+7. Graph Service computes centrality and collusion risk from the network graph.
+8. Backend combines ML + Graph results and sends to Frontend.
+9. Frontend displays the trust score, risk radar, timeline, and fraud clusters.
+
+WHY MICROSERVICES?
+- Each service can be developed, tested, and scaled independently.
+- ML and Graph services use Python (best for ML/data science).
+- Backend uses Node.js (best for real-time WebSocket connections).
+- If one service fails, others still work (fault tolerance).
+
+
+================================================================================
+4. THE ML MODELS — IN DEPTH
+================================================================================
+
+We use 3 ML/statistical models. None of them require "training" in the 
+traditional sense (like training a neural network). They are RULE-BASED and 
+STATISTICAL models that compute scores from real-time data.
+
+WHY NOT DEEP LEARNING?
+For a hackathon demo with synthetic data, rule-based models with clear 
+mathematical formulas are better because:
+- They are explainable (you can tell the user exactly WHY the score is X).
+- They don't need thousands of labeled examples to train.
+- They run instantly (no GPU needed).
+- In production, these would be replaced with trained XGBoost/LSTM models 
+  once real historical data is available.
+
+
+--------------------------------------------------------------------------------
+MODEL 1: BEHAVIORAL ENGINE (behavioral_engine.py)
+--------------------------------------------------------------------------------
+
+WHAT IT DOES:
+Analyzes a seller's TRANSACTION BEHAVIOR to compute a score (0 to 1).
+
+INPUT:  
+- Seller's transactions (from Supabase: transactions table)
+- Seller's reviews (from Supabase: reviews table)
+
+5 FEATURES EXTRACTED:
+┌───────────────────────┬────────────────────────────────────────────┐
+│ Feature               │ How It's Calculated                        │
+├───────────────────────┼────────────────────────────────────────────┤
+│ On-time Delivery Rate │ % of orders delivered in ≤ 5 days          │
+│ Return Rate           │ % of orders with status = "refunded"       │
+│ Cancellation Rate     │ % of orders with status = "cancelled"      │
+│ Dispute Rate          │ % of orders with status = "disputed"       │
+│ Average Rating        │ Mean of all review ratings (1–5 stars)     │
+└───────────────────────┴────────────────────────────────────────────┘
+
+FORMULA:
+  behavioral_score = (ontime_rate × 0.3) 
+                   - (return_rate × 0.2) 
+                   - (cancellation_rate × 0.2) 
+                   - (dispute_rate × 0.3)
+  
+  final = 0.5 + behavioral_score   (normalized to 0–1 range)
+
+WHY THESE WEIGHTS?
+- On-time delivery (0.3): Most important positive signal — reliable sellers 
+  deliver on time.
+- Disputes (0.3): Most dangerous negative signal — disputes indicate serious 
+  problems.
+- Returns and cancellations (0.2 each): Moderate negatives — some returns 
+  are normal, but high rates signal issues.
+
+EXAMPLE:
+A seller with 90% on-time, 5% returns, 2% cancellations, 1% disputes:
+  = (0.90 × 0.3) - (0.05 × 0.2) - (0.02 × 0.2) - (0.01 × 0.3)
+  = 0.27 - 0.01 - 0.004 - 0.003
+  = 0.253
+  final = 0.5 + 0.253 = 0.753 (75.3% — good seller)
+
+
+--------------------------------------------------------------------------------
+MODEL 2: AUTHENTICITY MODEL (authenticity_model.py)
+--------------------------------------------------------------------------------
+
+WHAT IT DOES:
+Detects FAKE or INCENTIVIZED reviews. Returns a score (0 to 1).
+  1.0 = all reviews appear genuine
+  0.0 = highly suspicious reviews
+
+TWO DETECTION METHODS:
+
+METHOD A — BURST DETECTION:
+- Looks at review timestamps using a ROLLING WINDOW of 7 days.
+- If a seller gets 10+ reviews within any 7-day window, it's flagged as a 
+  "burst" — this is suspicious because organic reviews come gradually.
+- Burst detection penalty: -0.4 from the score.
+
+  WHY 10 reviews in 7 days? Normal sellers get 1-2 reviews/week. Getting 10+ 
+  in a week strongly suggests a coordinated fake review campaign.
+
+METHOD B — TEXT SIMILARITY:
+- Compares all review texts (lowercased) for exact duplicates.
+- Calculates: spam_score = 1 - (unique_texts / total_texts)
+- If more than 20% of reviews are duplicates, it penalizes the score.
+- Penalty: -(spam_score × 0.5)
+
+  WHY THIS WORKS? Fake review farms often copy-paste the same text across 
+  multiple accounts. Real buyers write unique reviews.
+
+FORMULA:
+  base_score = 1.0
+  if burst detected:  base_score -= 0.4
+  if spam_score > 0.2: base_score -= (spam_score × 0.5)
+  final = max(0.0, base_score)
+
+
+--------------------------------------------------------------------------------
+MODEL 3: RISK ENGINE / TEMPORAL DECAY (risk_engine.py)
+--------------------------------------------------------------------------------
+
+WHAT IT DOES:
+Applies TIME DECAY to trust scores. Old trust data becomes less relevant 
+over time.
+
+THE CORE FORMULA (Exponential Decay):
+  Trust_new = Trust_old × e^(-λ × Δt)
+
+  Where:
+  - λ (lambda) = 0.05 (decay rate constant)
+  - Δt = number of days since last activity
+  - e = Euler's number (2.71828...)
+
+EXAMPLE:
+If a seller had trust score 800 but hasn't been active for 30 days:
+  Trust_new = 800 × e^(-0.05 × 30) = 800 × e^(-1.5) = 800 × 0.223 = 178.5
+
+This is a dramatic drop! It forces sellers to stay CONSISTENTLY active 
+to maintain their score.
+
+WHY EXPONENTIAL DECAY?
+- Used in physics (radioactive decay), finance (options pricing), and 
+  information retrieval (BM25 ranking).
+- It's smooth and continuous — no sudden cliffs.
+- The λ parameter is tunable: higher = faster decay, lower = slower.
+
+ADDITIONAL METHODS:
+- calculate_volatility(): Standard deviation of historical scores, normalized 
+  to 0–100. High volatility = unpredictable seller.
+- predict_risk_trend(): Linear regression (numpy.polyfit) on last 5 scores 
+  to predict if trust is "improving", "declining", or "stable".
+
+
+================================================================================
+5. FINAL TRUST SCORE CALCULATION
+================================================================================
+
+The final score combines all 3 models:
+
+Step 1: Get behavioral_score (0–1) from BehavioralEngine
+Step 2: Get authenticity_score (0–1) from AuthenticityModel  
+Step 3: Get decayed_score from RiskEngine
+Step 4: Combine:
+  
+  raw_performance = (behavioral × 0.6 + authenticity × 0.4) × 1000
+  
+  alpha = 0.3 (blending factor)
+  
+  final_score = decayed_score × (1 - alpha) + raw_performance × alpha
+  final_score = clamp(0, 1000)
+
+WHY 60/40 SPLIT?
+- Behavioral (60%): Actions speak louder than words. Actual delivery 
+  performance matters more.
+- Authenticity (40%): Review quality matters too, but less than actions.
+
+WHY alpha = 0.3?
+- 70% weight on historical (decayed) score = stability/inertia.
+- 30% weight on current performance = responsiveness to change.
+- This prevents wild score swings from a single bad day.
+
+RISK LEVELS:
+- Score ≥ 750: "Low Risk" (green) — Excellent, trusted seller
+- Score 500–749: "Medium Risk" (yellow) — Monitor this seller
+- Score < 500: "High Risk" (red) — Warning: potential fraud
+
+
+================================================================================
+6. GRAPH INTELLIGENCE — FRAUD DETECTION
+================================================================================
+
+FILE: graph-service/graph_engine.py
+LIBRARY: NetworkX (Python graph analysis library)
+
+HOW THE GRAPH IS BUILT:
+- Each BUYER and SELLER is a node.
+- Each TRANSACTION creates an edge: Buyer → Seller.
+- Edge weight = number of transactions between that pair.
+- Data source: Supabase "transactions" table (paginated fetch).
+
+THREE ANALYSIS METHODS:
+
+1. LOUVAIN COMMUNITY DETECTION (find_fraud_rings):
+   - Algorithm: Louvain method for community detection.
+   - What it does: Finds groups of nodes that are more densely connected 
+     to each other than to the rest of the network.
+   - Fraud signal: Small communities (3–10 nodes) where everyone buys from 
+     everyone else = suspicious collusion ring.
+   - Returns: Top 5 suspicious communities.
+
+2. IN-DEGREE CENTRALITY (get_centrality_score):
+   - What it does: Counts how many unique buyers a seller has.
+   - High centrality = popular seller (many different buyers).
+   - Low centrality = few unique buyers (could be fake wash trading).
+
+3. CLUSTERING COEFFICIENT (detect_collusion):
+   - What it does: Measures if a seller's buyers also transact with each 
+     other.
+   - Normal case: Buyers are independent — low clustering (~0.0).
+   - Fraud case: Buyers all know each other — high clustering (>0.5).
+   - If clustering > 0.5, it triggers a "High Collusion Risk" alert.
+
+WHY NETWORKX?
+- Pure Python — no external database needed (like Neo4j).
+- Supports directed graphs, community detection, centrality metrics.
+- Fast enough for demo scale (20,000+ transactions).
+- In production, you'd use Neo4j or Amazon Neptune for millions of nodes.
+
+
+================================================================================
+7. DATABASE — SUPABASE
+================================================================================
+
+WHY SUPABASE?
+- Free tier with 500MB PostgreSQL database — perfect for hackathon.
+- Built-in REST API — no need to write SQL endpoint code.
+- Real-time subscriptions possible (future feature).
+- Hosted in the cloud — no local database setup needed.
+- PostgreSQL under the hood — industry standard, ACID compliant.
+
+TABLES:
+┌─────────────────┬────────────────────────────────────────────┐
+│ Table           │ Purpose                                     │
+├─────────────────┼────────────────────────────────────────────┤
+│ sellers         │ Seller profiles (name, join date, baseline) │
+│ buyers          │ Buyer profiles (extracted from transactions)│
+│ transactions    │ All trades (amount, status, delivery time)  │
+│ reviews         │ Buyer reviews (rating, text, timestamp)     │
+│ trust_scores    │ Historical score snapshots (for trends)     │
+└─────────────────┴────────────────────────────────────────────┘
+
+DATA VOLUME: ~1,000 sellers, ~5,000 buyers, ~20,000 transactions, ~8,000 reviews
+
+HOW WE CONNECT:
+- We use Supabase REST API directly (via Python "requests" library).
+- No SDK needed — just HTTP GET/POST with API key in headers.
+- Each service queries only the data it needs (no full table scans).
+
+
+================================================================================
+8. DATA GENERATION (data-simulation/generator.py)
+================================================================================
+
+WHY SYNTHETIC DATA?
+- No real e-commerce dataset with all fields we need (trust, fraud, reviews).
+- Faker library generates realistic Indian names (en_IN locale).
+- We control the data distribution to ensure demo variety.
+
+WHAT IT GENERATES:
+- 1,000 sellers with baseline trust scores (300–900 range).
+- 20,000+ transactions with realistic amounts, statuses, delivery times.
+- 8,000+ reviews with ratings and text.
+- All linked by UUIDs (seller_id, buyer_id, transaction_id).
+
+SEEDING:
+- seed_supabase.py reads CSVs and uploads to Supabase via REST API.
+- Uses batch upsert (200 rows per request) for efficiency.
+- Handles duplicates gracefully (Prefer: resolution=merge-duplicates).
+
+
+================================================================================
+9. FRONTEND — TECHNOLOGY CHOICES
+================================================================================
+
+┌──────────────────┬────────────────────────────────────────────────┐
+│ Technology       │ Why We Chose It                                 │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Next.js 16       │ React framework with server-side rendering,     │
+│                  │ file-based routing, and built-in optimization.  │
+│                  │ Industry standard for production React apps.    │
+├──────────────────┼────────────────────────────────────────────────┤
+│ React 19         │ Component-based UI library. State management    │
+│                  │ via hooks (useState, useEffect).                │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Tailwind CSS 4   │ Utility-first CSS framework. Rapid prototyping  │
+│                  │ without writing custom CSS files. Consistent    │
+│                  │ design tokens (colors, spacing, breakpoints).   │
+├──────────────────┼────────────────────────────────────────────────┤
+│ TypeScript       │ Typed JavaScript. Catches bugs at compile time. │
+│                  │ Better IDE support and code documentation.      │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Recharts         │ React charting library built on D3.js.          │
+│                  │ Used for: RadarChart, LineChart, AreaChart.     │
+│                  │ Why not D3 directly? Recharts is simpler and    │
+│                  │ integrates natively with React components.      │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Framer Motion    │ Animation library for React. Powers all the     │
+│                  │ smooth transitions, modal animations, and       │
+│                  │ micro-interactions in the dashboard.            │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Socket.IO Client │ WebSocket client for real-time trust updates.   │
+│                  │ Receives live score changes without page reload.│
+├──────────────────┼────────────────────────────────────────────────┤
+│ Lucide React     │ Icon library (fork of Feather Icons). Clean,    │
+│                  │ consistent iconography throughout the UI.       │
+└──────────────────┴────────────────────────────────────────────────┘
+
+UI COMPONENTS:
+1. TrustScoreCard — Shows the main trust score with color-coded glow effects.
+2. RiskRadar — 6-axis radar chart showing risk dimensions.
+3. TrustTimeline — Line chart showing score evolution over 30 days.
+4. FraudCluster — Animated SVG visualization of graph fraud clusters.
+5. WhyThisScore — Factor breakdown explaining the score (explainability).
+6. DetailModal — Click-to-maximize: fullscreen view with in-depth analysis.
+
+
+================================================================================
+10. BACKEND GATEWAY — TECHNOLOGY CHOICES
+================================================================================
+
+┌──────────────────┬──────────────────────────────────────────────┐
+│ Technology       │ Why We Chose It                               │
+├──────────────────┼──────────────────────────────────────────────┤
+│ Node.js          │ Non-blocking I/O — perfect for handling        │
+│                  │ many concurrent WebSocket connections.         │
+├──────────────────┼──────────────────────────────────────────────┤
+│ Express.js       │ Minimal web framework. Simple REST routing.   │
+│                  │ Industry standard for Node.js APIs.           │
+├──────────────────┼──────────────────────────────────────────────┤
+│ Socket.IO        │ WebSocket library with fallbacks.             │
+│                  │ Enables real-time push to the frontend.       │
+├──────────────────┼──────────────────────────────────────────────┤
+│ Axios            │ HTTP client for calling ML/Graph services.    │
+│                  │ Cleaner API than native fetch for Node.js.    │
+├──────────────────┼──────────────────────────────────────────────┤
+│ CORS             │ Cross-Origin Resource Sharing middleware.     │
+│                  │ Required because frontend (port 3000) calls  │
+│                  │ backend (port 5000) — different origins.      │
+└──────────────────┴──────────────────────────────────────────────┘
+
+
+================================================================================
+11. ML/GRAPH SERVICES — TECHNOLOGY CHOICES
+================================================================================
+
+┌──────────────────┬────────────────────────────────────────────────┐
+│ Technology       │ Why We Chose It                                 │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Python 3.9+      │ Dominant language for ML/data science.          │
+│                  │ Best library ecosystem (pandas, numpy, etc.)   │
+├──────────────────┼────────────────────────────────────────────────┤
+│ FastAPI          │ Modern Python web framework. Automatic API      │
+│                  │ docs (Swagger UI), async support, type hints.  │
+│                  │ 10x faster than Flask.                         │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Pandas           │ Data manipulation library. Used to filter and   │
+│                  │ aggregate transactions/reviews per seller.     │
+├──────────────────┼────────────────────────────────────────────────┤
+│ NumPy            │ Numerical computing. Exponential decay (e^x),  │
+│                  │ standard deviation, linear regression.         │
+├──────────────────┼────────────────────────────────────────────────┤
+│ NetworkX         │ Graph analysis library. Community detection,    │
+│                  │ centrality scoring, clustering coefficients.   │
+│                  │ Alternative to Neo4j that runs in-memory.      │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Uvicorn          │ ASGI server for FastAPI. Handles async HTTP.   │
+│                  │ Run via: python -m uvicorn main:app             │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Requests         │ HTTP library for calling Supabase REST API.    │
+│                  │ Simpler than the Supabase Python SDK.          │
+├──────────────────┼────────────────────────────────────────────────┤
+│ Faker (en_IN)    │ Generates realistic synthetic data.            │
+│                  │ en_IN locale = Indian names for demo.          │
+├──────────────────┼────────────────────────────────────────────────┤
+│ SciPy            │ Scientific computing. Z-score normalization     │
+│                  │ for feature standardization.                   │
+└──────────────────┴────────────────────────────────────────────────┘
+
+
+================================================================================
+12. COMMON EVALUATOR QUESTIONS & ANSWERS
+================================================================================
+
+Q: "Is this using real machine learning?"
+A: Yes. We use statistical ML techniques — weighted feature scoring, 
+   exponential decay functions, community detection algorithms (Louvain), 
+   and clustering analysis. These are legitimate ML/statistical methods. 
+   The architecture is designed so that when real data is available, the 
+   rule-based models can be swapped with trained XGBoost or LSTM models 
+   without changing the API.
+
+Q: "How is the data generated?"
+A: We use Python's Faker library (en_IN locale for Indian names) to generate 
+   realistic synthetic data: 1,000 sellers, 20,000 transactions, 8,000 
+   reviews. Each transaction has a status (completed/refunded/cancelled/
+   disputed), amount, and delivery time. The data is seeded into a Supabase 
+   PostgreSQL database.
+
+Q: "Why not use a pre-trained model?"
+A: Pre-trained models need labeled training data (known fraud vs genuine). 
+   For a trust scoring system, such labeled datasets don't exist publicly. 
+   Our approach uses interpretable statistical methods that work without 
+   training data and provide full explainability.
+
+Q: "What makes this different from Amazon/Flipkart ratings?"
+A: Three things:
+   1. Temporal Decay — old reviews lose influence automatically.
+   2. Fraud Detection — we analyze buyer-seller NETWORKS, not just metrics.
+   3. Explainability — we show WHY the score is what it is (WhyThisScore).
+
+Q: "Can this scale to millions of sellers?"
+A: The architecture supports it. For production:
+   - Replace in-memory NetworkX with Neo4j or Amazon Neptune.
+   - Add Redis caching for frequently accessed scores.
+   - Deploy services on Kubernetes for auto-scaling.
+   - Use batch processing (Apache Spark) for graph computation.
+
+Q: "What is the temporal decay formula?"
+A: Trust_new = Trust_old × e^(-λ × Δt), where λ=0.05 and Δt is days 
+   since last activity. This is exponential decay — the same concept used 
+   in radioactive decay, option pricing (Black-Scholes), and information 
+   retrieval (TF-IDF time weighting).
+
+Q: "How do you detect fake reviews?"
+A: Two methods:
+   1. Burst Detection: Rolling 7-day window. If 10+ reviews arrive in one 
+      week, it's flagged as suspicious.
+   2. Text Similarity: Exact-match duplicate detection. If >20% of reviews 
+      share identical text, it's penalized.
+
+Q: "Why microservices instead of monolith?"
+A: Separation of concerns. Python is best for ML/graph analysis. Node.js 
+   is best for real-time WebSocket connections. Each service can be deployed 
+   and scaled independently. If the ML service crashes, the graph service 
+   still works.
+
+Q: "What database are you using?"
+A: Supabase — a hosted PostgreSQL database with a built-in REST API. We 
+   chose it because: free tier, no local setup, industry-standard SQL, 
+   and real-time subscription capability for future features.
+
+Q: "How does the frontend get real-time updates?"
+A: Socket.IO WebSocket connection between the frontend (React) and backend 
+   (Node.js). The backend pushes trust_update events every 5 seconds. The 
+   frontend updates the score without a page reload.
+
+
+================================================================================
+13. QUICK REFERENCE — FILE MAP
+================================================================================
+
+TRUSTRA/
+├── frontend/               # Next.js 16 + React 19 + TypeScript
+│   └── src/
+│       ├── app/
+│       │   ├── page.tsx             # Landing page
+│       │   ├── dashboard/page.tsx   # Main dashboard
+│       │   ├── layout.tsx           # Root layout
+│       │   └── globals.css          # Global styles
+│       ├── components/
+│       │   ├── TrustScoreCard.tsx    # Score display with glow
+│       │   ├── RiskRadar.tsx         # 6-axis radar chart
+│       │   ├── TrustTimeline.tsx     # Historical line chart
+│       │   ├── FraudCluster.tsx      # Graph visualization
+│       │   ├── WhyThisScore.tsx      # Factor explainability
+│       │   └── DetailModal.tsx       # Click-to-maximize modal
+│       └── lib/
+│           └── api.ts               # API fetch functions
+│
+├── backend/                # Node.js + Express + Socket.IO
+│   ├── server.js           # API Gateway (routes + WebSocket)
+│   └── package.json
+│
+├── ml-service/             # Python + FastAPI
+│   ├── main.py             # API endpoints (Supabase queries)
+│   ├── models/
+│   │   ├── behavioral_engine.py   # Weighted behavioral scoring
+│   │   ├── authenticity_model.py  # Fake review detection
+│   │   └── risk_engine.py         # Temporal decay + volatility
+│   └── requirements.txt
+│
+├── graph-service/          # Python + FastAPI + NetworkX
+│   ├── main.py             # API endpoints
+│   ├── graph_engine.py     # Louvain + centrality + clustering
+│   └── requirements.txt
+│
+├── data-simulation/        # Data generation + seeding
+│   ├── generator.py         # Faker-based synthetic data
+│   ├── seed_supabase.py     # CSV → Supabase uploader
+│   ├── sellers.csv          # Generated seller data
+│   ├── transactions.csv     # Generated transaction data
+│   └── reviews.csv          # Generated review data
+│
+├── docker/                 # Docker configs (not used in demo)
+│   ├── docker-compose.yml
+│   └── init.sql             # SQL schema (run in Supabase)
+│
+├── .env                    # Supabase URL + API Key
+├── start_all.bat           # One-click system launcher
+├── README.md               # Evaluator-facing project summary
+├── project_documentation.md # Detailed technical documentation
+└── demo_voiceover_script.md # Script for demo video recording
+
+
+================================================================================
+14. HOW TO RUN THE PROJECT
+================================================================================
+
+Prerequisites: Node.js 18+, Python 3.9+, pip
+
+Step 1: Open terminal in TRUSTRA folder
+Step 2: Run: .\start_all.bat
+Step 3: Wait 30 seconds for all 4 services to boot
+Step 4: Open browser: http://localhost:3000
+Step 5: Click "Explore Dashboard" → Select a seller → View trust analysis
+
+The start_all.bat script:
+1. Installs Faker and generates synthetic CSV data
+2. Starts Backend (Node.js) on port 5000
+3. Starts ML Service (FastAPI) on port 8000
+4. Starts Graph Service (FastAPI) on port 8001
+5. Starts Frontend (Next.js) on port 3000
+
+================================================================================
+END OF KNOWLEDGE BASE
+================================================================================

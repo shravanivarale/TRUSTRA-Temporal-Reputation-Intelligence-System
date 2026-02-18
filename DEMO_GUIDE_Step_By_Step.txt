@@ -1,0 +1,313 @@
+================================================================================
+   TRUSTRA™ — COMPLETE DEMO GUIDE
+   Step-by-Step Instructions for Live Demonstration
+================================================================================
+
+
+================================================================================
+IMPORTANT: DOES EVERY DEMO NEED THE SAME DATA?
+================================================================================
+
+NO. Every time you run .\start_all.bat, it RE-GENERATES fresh random data.
+
+- Seller names stay the same (same Faker seed).
+- But transaction amounts, statuses, delivery times, and reviews are RANDOM.
+- So trust scores will vary slightly between demos.
+- The Supabase database keeps the ORIGINAL seeded data unchanged.
+- This is actually a STRENGTH: it shows the system works with any data,
+  not a hardcoded demo.
+
+TIP: If you want CONSISTENT scores every demo, just don't re-run the data
+generator. The Supabase data stays the same until you re-seed it.
+
+
+================================================================================
+BEFORE THE DEMO (5 minutes prep)
+================================================================================
+
+Step 1: Open a terminal in the TRUSTRA folder
+Step 2: Run: .\start_all.bat
+Step 3: Wait 30 seconds for all 4 terminal windows to stabilize
+Step 4: Open browser → http://localhost:3000
+Step 5: Verify the landing page loads with "TRUSTRA" heading
+Step 6: Click "Explore Dashboard" → verify the dashboard loads with seller names
+
+You're ready. Keep ALL 4 terminal windows open (minimize them).
+
+
+================================================================================
+DEMO SCRIPT — SCENE BY SCENE (5-7 minutes)
+================================================================================
+
+
+SCENE 1: THE PROBLEM (30 seconds)
+---------------------------------------------------------------------------
+WHAT TO SAY:
+"Today's e-commerce trust systems are broken. A seller with a 4.5 star 
+rating could be hiding recent fraud. Old reviews dilute new problems. 
+Fake review farms inflate ratings. And nobody looks at the NETWORK of 
+buyers and sellers. TRUSTRA fixes all three."
+
+WHAT TO SHOW:
+→ Just the landing page at http://localhost:3000
+→ Point to the tagline "Temporal Reputation Intelligence System"
+
+
+SCENE 2: THE DASHBOARD — GOOD SELLER (2 minutes)
+---------------------------------------------------------------------------
+WHAT TO DO:
+1. Click "Explore Dashboard" on the landing page.
+2. The dashboard loads with the first seller auto-selected.
+3. IF the first seller has a HIGH score (green, 750+), perfect — use them.
+4. IF NOT, click the seller dropdown and pick a seller with a high 
+   baseline score (like "Menon Ltd" or "Chana, Chanda and Karnik").
+
+WHAT TO SHOW & SAY:
+
+→ TRUST SCORE CARD (top-left, green glow):
+  "This seller has a trust score of [780]. The system rates them as 
+  EXCELLENT. This score isn't a simple average — it's computed from 
+  behavioral patterns, review authenticity, and temporal decay."
+
+→ RISK RADAR (top-middle, purple radar chart):
+  "The Risk Radar shows 6 threat dimensions simultaneously. Notice how 
+  Volatility is low, Identity is high, and Fraud Probability is almost 
+  zero. This seller is clean across all axes."
+
+→ WHY THIS SCORE (top-right, factor bars):
+  "Deep Explainability — this shows exactly WHY the score is what it is. 
+  Behavioral Metrics are positive: good delivery times, low returns. 
+  Authenticity is positive: reviews appear organic, not fake."
+
+→ CLICK TO EXPAND: 
+  "Watch this — I can click on any panel to get an in-depth analysis."
+  Click on the Risk Radar → show the fullscreen modal with insights.
+  "The system explains what each axis means and how it's calculated."
+  Close the modal.
+
+→ TRUST TIMELINE (bottom-left, line chart):
+  "This shows how the score evolved over 30 days. Notice the stable 
+  upward trend — this seller is consistently building trust."
+
+→ FRAUD CLUSTER (bottom-right, network visualization):
+  "Graph Intelligence — our system maps the buyer-seller network. 
+  This seller's buyers are independent — no collusion detected."
+
+
+SCENE 3: THE DASHBOARD — SUSPICIOUS SELLER (2 minutes)
+---------------------------------------------------------------------------
+WHAT TO DO:
+1. Click the seller dropdown.
+2. Find a seller with a LOW baseline score (look for scores 400-500).
+   Good picks: "Sha-Acharya" (~471) or any seller below 500.
+3. Select them.
+
+WHAT TO SHOW & SAY:
+
+→ TRUST SCORE CARD (now yellow or red):
+  "Now look at THIS seller — score is [471], rated as HIGH RISK. 
+  The card glows red instead of green. The system has identified 
+  serious trust issues."
+
+→ RISK RADAR (now spiked differently):
+  "Notice how the radar shape has completely changed. Fraud Probability 
+  is HIGH, Volatility is spiking. This seller's risk profile is 
+  completely different from the trusted one."
+
+→ WHY THIS SCORE (now showing negative factors):
+  "The explainability panel might show Graph Intelligence as a NEGATIVE 
+  factor — meaning our network analysis detected suspicious patterns 
+  in their buyer connections."
+
+→ CLICK TO EXPAND on Trust Score Card:
+  "Let me expand this for detail. The in-depth view shows exactly how 
+  the 60/40 behavioral-authenticity split and temporal decay formula 
+  contribute to this low score."
+
+
+SCENE 4: REAL-TIME UPDATES (30 seconds)
+---------------------------------------------------------------------------
+WHAT TO SHOW & SAY:
+"TRUSTRA updates in real-time. Watch the score — it shifts every few 
+seconds as new data comes in via WebSocket."
+
+→ Watch the Trust Score number change slightly (it updates every 5 seconds).
+→ "In production, this would be triggered by actual new transactions."
+
+
+SCENE 5: TECHNICAL DEEP DIVE (1-2 minutes, if evaluators ask)
+---------------------------------------------------------------------------
+WHAT TO SAY (pick relevant points):
+
+ON THE ML MODELS:
+"We use three statistical models:
+1. Behavioral Engine — weighted scoring: 30% delivery time, 30% disputes, 
+   20% returns, 20% cancellations.
+2. Authenticity Model — detects fake review bursts using a 7-day rolling 
+   window and text similarity analysis.
+3. Risk Engine — applies exponential decay: Trust = Trust_old × e^(-0.05 × days).
+   Inactive sellers' scores decay over time."
+
+ON THE GRAPH:
+"The Graph Service uses NetworkX to build a buyer→seller directed graph 
+from 20,000+ transactions. We run Louvain community detection to find 
+fraud rings, and clustering coefficient analysis to detect collusion."
+
+ON THE DATABASE:
+"All data is stored in Supabase PostgreSQL — a real cloud database, not 
+local files. We query it via REST API in real-time."
+
+
+================================================================================
+HOW TO ADD DATA IN REAL-TIME (Live Demo Trick)
+================================================================================
+
+If an evaluator says "Can you add a new seller?" or "Show me real-time 
+data insertion", here's how:
+
+
+METHOD 1: ADD DATA VIA SUPABASE DASHBOARD (Easiest - Visual)
+---------------------------------------------------------------------------
+
+1. Open a new browser tab → https://supabase.com/dashboard
+2. Sign in → Select your "trustra-db" project
+3. Click "Table Editor" in the left sidebar
+4. Click on the "sellers" table
+
+TO ADD A NEW SELLER:
+5. Click "Insert Row" button (top right)
+6. Fill in:
+   - id: (click the UUID generate button, or type any unique ID)
+   - name: "Demo Seller Live"  
+   - joined_at: 2026-02-18T12:00:00
+   - baseline_trust_score: 650
+   - status: active
+7. Click "Save"
+
+TO ADD TRANSACTIONS FOR THAT SELLER:
+8. Go to the "transactions" table
+9. Click "Insert Row"
+10. Fill in:
+    - id: (generate UUID)
+    - seller_id: (paste the seller's UUID from step 6)
+    - buyer_id: (pick any buyer_id from existing rows)
+    - amount: 4500.00
+    - status: completed
+    - timestamp: 2026-02-18T12:00:00
+    - delivery_time_days: 3
+11. Click "Save"
+12. Add 2-3 more transactions with different statuses (refunded, disputed)
+
+NOW GO BACK TO THE DASHBOARD:
+13. Refresh the TRUSTRA dashboard (http://localhost:3000/dashboard)
+14. Click the seller dropdown → Find "Demo Seller Live"
+15. Select them → Trust score is computed LIVE from the data you just added!
+
+SAY: "I just added a brand new seller directly into our Supabase database, 
+and the system instantly computed their trust score from the transactions 
+we added. No code changes, no restarts — the ML engine queries the database 
+in real-time."
+
+
+METHOD 2: ADD DATA VIA SUPABASE SQL EDITOR (More Impressive)
+---------------------------------------------------------------------------
+
+1. Open Supabase Dashboard → SQL Editor
+2. Paste and run this SQL:
+
+   INSERT INTO sellers (id, name, joined_at, baseline_trust_score, status)
+   VALUES ('demo-live-001', 'Live Demo Seller', '2026-02-18T12:00:00', 600, 'active');
+
+   INSERT INTO transactions (id, seller_id, buyer_id, amount, status, timestamp, delivery_time_days)
+   VALUES 
+     ('tx-demo-001', 'demo-live-001', 'buyer-001', 5000, 'completed', '2026-02-18T12:01:00', 3),
+     ('tx-demo-002', 'demo-live-001', 'buyer-002', 3000, 'completed', '2026-02-18T12:02:00', 4),
+     ('tx-demo-003', 'demo-live-001', 'buyer-003', 2000, 'disputed', '2026-02-18T12:03:00', 8);
+
+   INSERT INTO reviews (id, seller_id, buyer_id, rating, text, timestamp)
+   VALUES 
+     ('rv-demo-001', 'demo-live-001', 'buyer-001', 5, 'Great seller, fast delivery!', '2026-02-18T12:05:00'),
+     ('rv-demo-002', 'demo-live-001', 'buyer-002', 4, 'Good product, satisfied.', '2026-02-18T12:06:00'),
+     ('rv-demo-003', 'demo-live-001', 'buyer-003', 1, 'Terrible experience, disputed.', '2026-02-18T12:07:00');
+
+3. Click "Run"
+4. Go to TRUSTRA dashboard → Refresh → Select "Live Demo Seller"
+5. The score will reflect: 2 good transactions + 1 dispute + mixed reviews
+
+SAY: "We just inserted raw SQL into our Supabase database — 1 seller, 
+3 transactions, 3 reviews — and the system computed the trust score 
+instantly. The Behavioral Engine detected the dispute, the Authenticity 
+Model analyzed the review texts, and the Risk Engine applied temporal 
+decay. All in real-time."
+
+
+METHOD 3: RE-GENERATE ALL DATA (Quick Reset)
+---------------------------------------------------------------------------
+
+If you want completely fresh data:
+1. Open terminal in TRUSTRA folder
+2. Run: python data-simulation/generator.py
+3. Run: python data-simulation/seed_supabase.py
+4. Refresh the dashboard
+
+This re-generates 1,000 sellers + 20,000 transactions + 8,000 reviews.
+
+
+================================================================================
+WHAT TO SHOW ON THE WEBSITE — PRIORITY ORDER
+================================================================================
+
+If you have LIMITED TIME (3 minutes), show ONLY these:
+
+1. ✅ Trust Score Card — Show a HIGH score seller (green glow)
+2. ✅ Switch to a LOW score seller — Show the difference (red/yellow)
+3. ✅ Click-to-Expand — Click any chart to show in-depth analysis modal
+4. ✅ Why This Score — Explainability is our unique selling point
+
+If you have MORE TIME (5–7 minutes), also show:
+
+5. ✅ Risk Radar — 6-axis threat visualization
+6. ✅ Fraud Clusters — Graph Intelligence visualization
+7. ✅ Real-time update — Watch the score change live
+8. ✅ Supabase data insertion — Add data live (Method 1 or 2 above)
+
+
+================================================================================
+BACKUP PLAN: IF SOMETHING BREAKS DURING DEMO
+================================================================================
+
+PROBLEM: Dashboard shows "Cannot connect to TRUSTRA Backend"
+FIX: Run .\start_all.bat again. Wait 30 seconds.
+
+PROBLEM: No sellers in dropdown
+FIX: The ML service hasn't started yet. Wait 15 more seconds and refresh.
+
+PROBLEM: Trust score shows 0
+FIX: Click the Refresh button (⟳) next to the seller dropdown.
+
+PROBLEM: Supabase connection fails
+FIX: The system has CSV FALLBACK. It will automatically load data from 
+local CSV files if Supabase is unreachable. The dashboard still works.
+
+PROBLEM: Internet is down (no Supabase)
+FIX: The system still works! Both ML and Graph services have a built-in 
+CSV fallback mode. You just can't do the "live data insertion" trick.
+
+
+================================================================================
+KEY TALKING POINTS FOR EVALUATORS
+================================================================================
+
+1. "Our system uses TEMPORAL DECAY — not just static averages."
+2. "We detect FAKE REVIEWS using burst analysis and text similarity."
+3. "We use GRAPH INTELLIGENCE to find fraud rings in buyer-seller networks."
+4. "Every score comes with EXPLAINABILITY — users know exactly WHY."
+5. "Data is stored in SUPABASE POSTGRESQL — a real cloud database."
+6. "The architecture is MICROSERVICES — each component scales independently."
+7. "We built this with REAL ML techniques — not just hardcoded rules."
+8. "The system has FALLBACK MODES — it works even if the database is down."
+
+
+================================================================================
+END OF DEMO GUIDE
+================================================================================
