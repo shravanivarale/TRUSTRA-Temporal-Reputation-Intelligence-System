@@ -1,0 +1,659 @@
+================================================================================
+          TRUSTRA — REAL-TIME DATASET IMPLEMENTATION PLAN
+          From Static CSVs to a Live, Working Reputation Engine
+================================================================================
+
+  Prepared:   17 February 2026
+  Project:    TRUSTRA – Temporal Reputation Intelligence System
+  Hackathon:  Web Weaver 2026
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+  1.  EXECUTIVE SUMMARY
+  2.  IN-DEPTH ANALYSIS OF THE CURRENT SYSTEM (What Exists Today)
+  3.  GAP ANALYSIS (Why It Doesn't Work in Real-Time)
+  4.  REAL-TIME STRATEGY — THREE APPROACHES (Pick One)
+      4A.  APPROACH A — Lightweight (Supabase / Firebase) — RECOMMENDED
+      4B.  APPROACH B — Medium (PostgreSQL + Redis Pub/Sub)
+      4C.  APPROACH C — Full Scale (Kafka + PostgreSQL + Redis)
+  5.  DETAILED FILE-BY-FILE CHANGES (Approach A — Recommended)
+  6.  REAL-TIME DATA FLOW DIAGRAM
+  7.  HOW TO PROVE IT WORKS (Live Demo Plan)
+  8.  STEP-BY-STEP EXECUTION TIMELINE
+  9.  APPENDIX: DATABASE SCHEMA
+
+
+================================================================================
+1.  EXECUTIVE SUMMARY
+================================================================================
+
+CURRENT STATE:
+  The entire TRUSTRA system currently runs on STATIC CSV FILES generated
+  once by `data-simulation/generator.py`. All 4 services load these CSVs
+  into memory at startup. There is NO live data ingestion. The WebSocket
+  in `server.js` emits fake random +/-5 score changes to a hardcoded
+  seller ID every 5 seconds — pure simulation, not connected to real data.
+
+GOAL:
+  Replace the static CSV pipeline with a REAL-TIME DATABASE so that:
+    1. New transactions/reviews can be SUBMITTED through the UI or API.
+    2. Trust scores RECOMPUTE AUTOMATICALLY when new data arrives.
+    3. The dashboard UPDATES IN REAL-TIME via WebSockets (live, not fake).
+    4. During a demo, an evaluator can ADD a transaction and WATCH the
+       trust score change on-screen within seconds.
+
+RECOMMENDED APPROACH:
+  Use Supabase (free tier) as a hosted PostgreSQL + Realtime engine.
+  Zero infrastructure to manage. The existing `init.sql` schema already
+  fits. Frontend subscribes to Supabase Realtime for instant updates.
+
+
+================================================================================
+2.  IN-DEPTH ANALYSIS OF THE CURRENT SYSTEM
+================================================================================
+
+Below is a file-by-file breakdown of the complete data pipeline.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: data-simulation/generator.py
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   One-time synthetic data generator.
+  WHAT IT DOES:
+    - Generates 1,000 sellers (Faker Indian company names + UUID IDs)
+    - Generates 5,000 buyers (Faker Indian person names + UUID IDs)
+    - Generates 20,000 transactions with weighted statuses:
+        85% completed, 5% refunded, 5% cancelled, 5% disputed
+    - 40% of transactions get a review (weighted: 50% 5-star, 30% 4-star, etc.)
+    - INJECTS FRAUD: Picks one random seller, renames to "FRAUD_SUSPECT_LTD",
+      adds 50 burst transactions on same day with identical 5-star reviews.
+    - Saves 4 CSV files: sellers.csv, buyers.csv, transactions.csv, reviews.csv
+  LIMITATION:
+    This runs ONCE. After generation, data is frozen forever.
+    No mechanism to add new transactions or reviews at runtime.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: ml-service/main.py  (FastAPI, Port 8000)
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   The "brain" — loads CSVs and computes trust scores.
+  STARTUP BEHAVIOR (load_data):
+    - On app startup, reads ALL 4 CSVs into global Pandas DataFrames.
+    - These DataFrames are IMMUTABLE after loading — no new data ever enters.
+  ENDPOINTS:
+    GET  /sellers           → Returns top 50 sellers (id, name, baseline score)
+    POST /compute-trust     → Given a seller_id:
+      1. Filters transactions_df and reviews_df for that seller.
+      2. Calls BehavioralEngine.compute_metrics(transactions, reviews)
+      3. Calls AuthenticityModel.predict_authenticity(reviews)
+      4. Calls RiskEngine.calculate_temporal_trust(baseline_score, None)
+         NOTE: last_updated is always None → decay never actually fires.
+      5. Blends scores: raw = (behavioral × 0.6 + authenticity × 0.4) × 1000
+         final = decayed × 0.7 + raw × 0.3, clamped to [0, 1000].
+      6. Volatility is HARDCODED to 20.0 (placeholder).
+
+──────────────────────────────────────────────────────────────────────────
+FILE: ml-service/models/behavioral_engine.py
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   Computes behavioral score (0.0 to 1.0)
+  METRICS:
+    - On-time delivery rate (delivery_time_days <= 5)
+    - Return rate (status == 'refunded')
+    - Cancellation rate (status == 'cancelled')
+    - Dispute rate (status == 'disputed')
+  FORMULA:
+    behavioral = (ontime × 0.3) - (return × 0.2) - (cancel × 0.2) - (dispute × 0.3)
+    final = 0.5 + behavioral → clamped to [0, 1]
+  STATUS: Works correctly on any DataFrame. Ready for real-time data.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: ml-service/models/authenticity_model.py
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   Detects fake/burst reviews. Returns authenticity score (0 to 1).
+  METHODS:
+    - detect_bursts():  Sliding window (7 days, threshold 10 reviews).
+      If >=10 reviews in any 7-day window → burst detected → -0.4 penalty.
+    - check_text_similarity():  Exact-match deduplication.
+      If many reviews have identical text → spam detected → penalty.
+  STATUS: Works on any list of review dicts. Ready for real-time data.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: ml-service/models/risk_engine.py
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   Temporal decay and volatility calculation.
+  KEY METHODS:
+    - calculate_temporal_trust(): Applies exponential decay: T × e^(-λ × Δt)
+      BUT: Currently called with last_updated=None → always returns unchanged.
+    - calculate_volatility(): Computes std dev of historical scores.
+      BUT: Never called — volatility is hardcoded to 20.0 in main.py.
+    - predict_risk_trend(): Linear regression on last 5 scores.
+      BUT: Never called from anywhere.
+  STATUS: Algorithms are correct but NOT WIRED UP due to lack of historical data.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: graph-service/graph_engine.py  (Port 8001)
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   Builds a NetworkX directed graph from transactions.csv.
+  STARTUP:   Reads transactions.csv once → creates Buyer→Seller edges
+             with transaction count as weight.
+  METHODS:
+    - get_centrality_score(): Returns in-degree (# unique buyers).
+    - detect_collusion(): Local clustering coefficient for a seller.
+    - find_fraud_rings(): Louvain community detection → returns small
+      dense communities (3-10 nodes) as suspicious clusters.
+  STATUS: Works on any graph. Can be rebuilt from new data on demand.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: backend/server.js  (Express, Port 5000)
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   API gateway + WebSocket hub.
+  ROUTES:
+    GET  /api/sellers       → Proxies to ML service GET /sellers
+    GET  /api/trust/:id     → Calls ML POST /compute-trust + Graph GET /graph/:id
+                               Merges results and returns to frontend.
+  WEBSOCKET:
+    Every 5 seconds, emits { sellerId: <HARDCODED_UUID>, change: random(-5,+5) }
+    This is COMPLETELY FAKE — not connected to any real data change.
+  STATUS: Gateway pattern is solid. WebSocket needs to be driven by real events.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: frontend/src/app/dashboard/page.tsx
+──────────────────────────────────────────────────────────────────────────
+  PURPOSE:   Main dashboard page.
+  DATA FLOW:
+    1. Fetches seller list from /api/sellers on mount.
+    2. When a seller is selected, fetches trust data from /api/trust/:id.
+    3. HARDCODED MOCK DATA:
+       - Timeline data is 6 static points (Jan 1–25, scores 750–785).
+       - Radar data: Returns, Disputes, Velocity, Identity are hardcoded.
+       - Only Volatility and Fraud Prob come from real API responses.
+    4. WebSocket: Listens for 'trust_update' events, applies +/- to score.
+       BUT: Only matches if sellerId equals the hardcoded UUID in server.js.
+  STATUS: All component rendering works. Needs real dynamic data sources.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: docker/docker-compose.yml
+──────────────────────────────────────────────────────────────────────────
+  SERVICES DEFINED (but NEVER USED by any code):
+    - PostgreSQL 15 (port 5432) — with init.sql schema
+    - Neo4j 5.12 (ports 7474/7687) — graph database
+    - Redis 7 (port 6379) — caching / pub-sub
+  STATUS: Ready to spin up. No application code connects to them yet.
+
+──────────────────────────────────────────────────────────────────────────
+FILE: docker/init.sql
+──────────────────────────────────────────────────────────────────────────
+  TABLES DEFINED:
+    sellers (id, name, joined_at, baseline_trust_score, status)
+    buyers (id, name, joined_at)
+    transactions (id, seller_id, buyer_id, amount, status, timestamp, delivery_time_days)
+    reviews (id, seller_id, buyer_id, transaction_id, rating, text, timestamp)
+    trust_scores (id, seller_id, score, timestamp)   ← HISTORY TABLE
+  STATUS: Schema is PRODUCTION-READY. Matches the CSV structure exactly.
+          The trust_scores table enables the volatility/timeline features
+          that are currently hardcoded.
+
+
+================================================================================
+3.  GAP ANALYSIS — Why the Current System Isn't Real-Time
+================================================================================
+
+  #   GAP                           IMPACT
+  ──  ────────────────────────────   ──────────────────────────────────────
+  1   Data is loaded ONCE from CSV   No new transactions can enter system
+  2   No POST endpoint to add data   Users cannot submit transactions/reviews
+  3   WebSocket emits fake data      Dashboard "live updates" are simulated
+  4   Timeline is hardcoded          No actual historical score tracking
+  5   Volatility is hardcoded (20)   Risk engine's best feature is unused
+  6   Temporal decay never fires     last_updated is always passed as None
+  7   Graph is built once            New relationships can't be detected
+  8   No database connected          Docker DBs exist but are not wired up
+  9   Radar chart is mostly static   Returns/Disputes/Velocity/Identity are fake
+  10  No data input UI               No way for user to demonstrate live updates
+
+
+================================================================================
+4.  REAL-TIME STRATEGY — THREE APPROACHES
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4A.  APPROACH A — LIGHTWEIGHT (Supabase)  ★ RECOMMENDED FOR HACKATHON ★
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WHY:
+  - Free tier: 500 MB database, unlimited API requests, built-in Realtime.
+  - Managed PostgreSQL — use the SAME init.sql schema.
+  - Supabase Realtime = built-in WebSocket push on INSERT/UPDATE/DELETE.
+  - JavaScript client library — works in both Node.js and Next.js.
+  - Zero DevOps. No Docker needed.
+
+ARCHITECTURE:
+
+  ┌──────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+  │  Next.js Frontend│────>│  Express Backend  │────>│  ML Service      │
+  │  (Port 3000)     │<────│  (Port 5000)      │────>│  (Port 8000)     │
+  │                  │     │                   │     └─────────────────┘
+  │  Supabase        │     │  Supabase Client  │────>│  Graph Service   │
+  │  Realtime Client │     │  (writes + reads) │     │  (Port 8001)     │
+  └──────────────────┘     └──────────────────┘     └─────────────────┘
+         │                         │
+         │    ┌────────────────────┐│
+         └───>│  SUPABASE (Cloud)  ││
+              │  PostgreSQL DB     │<┘
+              │  Realtime Engine   │
+              │  REST API          │
+              └────────────────────┘
+
+WHAT CHANGES:
+  1. Create a free Supabase project → run init.sql in SQL Editor.
+  2. Seed it with the CSV data using Supabase's CSV import or a script.
+  3. ML Service: Replace CSV loading with Supabase REST queries.
+  4. Graph Service: Query Supabase for transactions to build graph.
+  5. Backend: Add POST /api/transaction and POST /api/review endpoints.
+     On each POST → insert into Supabase → recompute trust → emit via WebSocket.
+  6. Frontend: Subscribe to Supabase Realtime for instant score changes.
+  7. Add a "Simulate Transaction" button to the dashboard for demos.
+
+COST: $0 (Free tier handles hackathon scale easily)
+TIME: ~4–6 hours of development
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4B.  APPROACH B — MEDIUM (Local PostgreSQL + Redis Pub/Sub)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Uses the existing docker-compose.yml to run PostgreSQL + Redis locally.
+  - Backend writes to PostgreSQL, publishes event to Redis.
+  - ML/Graph services subscribe to Redis → recompute on event.
+  - Backend pushes recomputed score to frontend via Socket.io.
+  - Requires Docker Desktop running on the machine.
+
+COST: $0 but needs Docker Desktop (~4 GB RAM)
+TIME: ~6–8 hours
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4C.  APPROACH C — FULL SCALE (Kafka + PostgreSQL + Redis)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Production-grade event streaming with Apache Kafka.
+  - Transactions published to Kafka topic.
+  - ML Service consumes from Kafka, computes scores, writes to PostgreSQL.
+  - Graph Service consumes from Kafka, rebuilds graph incrementally.
+  - Overkill for a hackathon demo, but architecturally correct.
+
+COST: Significant infra overhead
+TIME: ~12–16 hours
+
+
+================================================================================
+5.  DETAILED FILE-BY-FILE CHANGES (Approach A — Supabase)
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────
+STEP 1: SUPABASE PROJECT SETUP
+──────────────────────────────────────────────────────────────────────────
+  1. Go to https://supabase.com → Create a new project (free tier).
+  2. Go to SQL Editor → Paste and run the contents of docker/init.sql.
+  3. Note down:
+       SUPABASE_URL     = https://<project-ref>.supabase.co
+       SUPABASE_ANON_KEY = eyJ... (from Settings → API)
+  4. Go to Table Editor → Import CSV:
+       - Upload sellers.csv into "sellers" table
+       - Upload buyers.csv into "buyers" table
+       - Upload transactions.csv into "transactions" table
+       - Upload reviews.csv into "reviews" table
+  5. Enable Realtime on the "trust_scores" table:
+       Database → Replication → Enable for trust_scores table.
+
+──────────────────────────────────────────────────────────────────────────
+STEP 2: INSTALL DEPENDENCIES
+──────────────────────────────────────────────────────────────────────────
+
+  Backend (Node.js):
+    cd backend
+    npm install @supabase/supabase-js
+
+  Frontend (Next.js):
+    cd frontend
+    npm install @supabase/supabase-js
+
+  ML Service (Python):
+    pip install supabase httpx
+
+──────────────────────────────────────────────────────────────────────────
+STEP 3: MODIFY — backend/.env (NEW FILE)
+──────────────────────────────────────────────────────────────────────────
+
+  SUPABASE_URL=https://<your-project>.supabase.co
+  SUPABASE_ANON_KEY=eyJ...your-anon-key...
+  ML_SERVICE_URL=http://localhost:8000
+  GRAPH_SERVICE_URL=http://localhost:8001
+
+──────────────────────────────────────────────────────────────────────────
+STEP 4: MODIFY — backend/server.js
+──────────────────────────────────────────────────────────────────────────
+
+  CHANGES:
+    a) Import and initialize Supabase client.
+    b) ADD new endpoint: POST /api/transaction
+       → Inserts transaction into Supabase "transactions" table.
+       → Optionally inserts review if provided.
+       → Calls ML service /compute-trust with the seller_id.
+       → Inserts the new trust_score into "trust_scores" table.
+       → Emits Socket.io 'trust_update' with the REAL new score.
+    c) ADD new endpoint: POST /api/review
+       → Inserts review into Supabase "reviews" table.
+       → Triggers trust recomputation for that seller.
+    d) REMOVE the fake setInterval WebSocket emission.
+    e) Replace it: emit 'trust_update' only inside the POST handlers
+       after a real trust recomputation.
+
+  PSEUDOCODE for POST /api/transaction:
+
+    app.post('/api/transaction', async (req, res) => {
+      const { seller_id, buyer_id, amount, status, delivery_time_days } = req.body;
+
+      // 1. Insert into Supabase
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({ id: uuid(), seller_id, buyer_id, amount, status,
+                  timestamp: new Date().toISOString(), delivery_time_days });
+
+      // 2. Recompute trust score
+      const mlResponse = await axios.post(ML_SERVICE_URL + '/compute-trust',
+                                           { seller_id });
+      const newScore = mlResponse.data.trust_score;
+
+      // 3. Store score history
+      await supabase.from('trust_scores')
+        .insert({ seller_id, score: newScore });
+
+      // 4. Broadcast real-time update
+      io.emit('trust_update', { sellerId: seller_id, newScore, change: ... });
+
+      res.json({ success: true, trust_score: newScore });
+    });
+
+──────────────────────────────────────────────────────────────────────────
+STEP 5: MODIFY — ml-service/main.py
+──────────────────────────────────────────────────────────────────────────
+
+  CHANGES:
+    a) Replace CSV loading with Supabase REST queries (using httpx or supabase-py).
+    b) In /compute-trust endpoint:
+       - Query Supabase for seller's transactions (real-time, not cached).
+       - Query Supabase for seller's reviews (real-time).
+       - Query trust_scores table for historical scores → pass to
+         risk_engine.calculate_volatility() (currently unused!).
+       - Get seller's last_updated timestamp → pass to
+         risk_engine.calculate_temporal_trust() (currently always None!).
+    c) ADD: Return REAL volatility instead of hardcoded 20.0.
+    d) ADD: Return risk_trend from predict_risk_trend().
+
+  PSEUDOCODE for startup:
+
+    from supabase import create_client
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    @app.post("/compute-trust")
+    def compute_trust(request: TrustRequest):
+        # Query LIVE data from Supabase
+        seller_tx = supabase.table('transactions')
+                        .select('*').eq('seller_id', request.seller_id).execute()
+        seller_reviews = supabase.table('reviews')
+                        .select('*').eq('seller_id', request.seller_id).execute()
+
+        # Get trust history for volatility
+        trust_history = supabase.table('trust_scores')
+                        .select('*').eq('seller_id', request.seller_id)
+                        .order('timestamp').execute()
+
+        # NOW the risk engine can actually compute volatility
+        volatility = risk_engine.calculate_volatility(trust_history.data)
+        trend = risk_engine.predict_risk_trend(trust_history.data)
+
+        # ... rest of scoring logic (behavioral + authenticity) ...
+
+──────────────────────────────────────────────────────────────────────────
+STEP 6: MODIFY — graph-service/graph_engine.py
+──────────────────────────────────────────────────────────────────────────
+
+  CHANGES:
+    a) Replace CSV loading in __init__ with Supabase query.
+    b) ADD a rebuild_graph() method that can be called on-demand.
+    c) ADD an endpoint: POST /rebuild → triggers graph rebuild from latest data.
+    d) Backend calls POST /rebuild after inserting a new transaction.
+
+──────────────────────────────────────────────────────────────────────────
+STEP 7: MODIFY — frontend/src/app/dashboard/page.tsx
+──────────────────────────────────────────────────────────────────────────
+
+  CHANGES:
+    a) REPLACE hardcoded timeline data with real data from trust_scores table:
+       - Fetch from new endpoint: GET /api/trust-history/:sellerId
+       - Backend queries trust_scores table ordered by timestamp.
+    b) REPLACE hardcoded radarData with real computed values from API.
+    c) Fix WebSocket handler to match ANY sellerId (not just hardcoded UUID).
+    d) ADD: "Simulate Transaction" panel (see Step 8).
+
+──────────────────────────────────────────────────────────────────────────
+STEP 8: ADD — frontend/src/components/SimulateTransaction.tsx (NEW FILE)
+──────────────────────────────────────────────────────────────────────────
+
+  PURPOSE: A panel where evaluators can submit a live transaction.
+  UI:
+    ┌──────────────────────────────────────────────┐
+    │  ⚡ LIVE TRANSACTION SIMULATOR                │
+    │                                              │
+    │  Seller:  [Auto-filled from current view]    │
+    │  Amount:  [  250.00  ]                       │
+    │  Status:  [ completed ▾ ]                    │
+    │  Delivery: [ 3 days ]                        │
+    │  Rating:  ★★★★☆                              │
+    │  Review:  [ Great service!            ]      │
+    │                                              │
+    │  [ 🚀 SUBMIT TRANSACTION ]                   │
+    └──────────────────────────────────────────────┘
+
+  ON SUBMIT:
+    1. POST /api/transaction with the form data.
+    2. The backend inserts → recomputes → emits WebSocket.
+    3. The dashboard score card ANIMATES to the new score.
+    4. The timeline chart APPENDS the new data point.
+    5. The risk radar UPDATES with new behavioral metrics.
+
+
+──────────────────────────────────────────────────────────────────────────
+STEP 9: ADD — backend/seed-supabase.js (NEW UTILITY SCRIPT)
+──────────────────────────────────────────────────────────────────────────
+
+  PURPOSE: One-time script to seed Supabase with existing CSV data.
+  USAGE:   node seed-supabase.js
+  LOGIC:
+    - Reads all 4 CSVs from data-simulation/
+    - Batch-inserts into Supabase tables
+    - Also generates initial trust_scores history (one score per seller)
+
+
+================================================================================
+6.  REAL-TIME DATA FLOW DIAGRAM
+================================================================================
+
+  CURRENT FLOW (Static):
+  ━━━━━━━━━━━━━━━━━━━━━
+
+    generator.py ──CSV──> ML Service (load once) ──> Backend ──> Frontend
+                  ──CSV──> Graph Service (load once) ──┘
+
+  NEW FLOW (Real-Time):
+  ━━━━━━━━━━━━━━━━━━━━━
+
+    User clicks                                      Dashboard updates
+    "Submit Transaction"                             score in real-time
+         │                                                ▲
+         ▼                                                │
+    ┌─────────┐    POST /api/transaction    ┌─────────────┤
+    │ Frontend │ ─────────────────────────> │   Backend    │
+    │          │ <───── WebSocket push ──── │  (Express)   │
+    └─────────┘                             └──────┬──────┘
+                                                   │
+                        ┌──────────────────────────┤
+                        │                          │
+                        ▼                          ▼
+                  ┌───────────┐            ┌────────────┐
+                  │ Supabase  │            │ ML Service  │
+                  │ (PostgreSQL│            │ (FastAPI)   │
+                  │  + Realtime│            │             │
+                  │ )         │<───────────│ Queries DB   │
+                  └───────────┘            └─────────────┘
+                        │
+                        ▼
+                  ┌────────────┐
+                  │ Graph       │
+                  │ Service     │
+                  │ (Rebuild)   │
+                  └────────────┘
+
+  EVENT SEQUENCE:
+    1. User submits transaction via UI form.
+    2. Frontend POSTs to backend /api/transaction.
+    3. Backend inserts row into Supabase "transactions" table.
+    4. Backend calls ML Service /compute-trust (which NOW queries Supabase live).
+    5. ML Service returns new trust score.
+    6. Backend inserts new score into "trust_scores" table.
+    7. Backend emits Socket.io 'trust_update' with real data.
+    8. Frontend receives WebSocket event → animates score change.
+    9. (Async) Backend calls Graph Service /rebuild for updated fraud analysis.
+
+
+================================================================================
+7.  HOW TO PROVE IT WORKS — LIVE DEMO PLAN
+================================================================================
+
+This is the most important section for the hackathon demo.
+
+──────────────────────────────────────────────────────────────────────────
+DEMO SCENARIO 1: "The Honest Seller Gets Rewarded"
+──────────────────────────────────────────────────────────────────────────
+
+  1. Open dashboard → Select a mid-range seller (score ~600).
+  2. Note the current Trust Score displayed on the card.
+  3. Open the "Simulate Transaction" panel.
+  4. Submit 3 completed transactions with 5-star reviews, fast delivery.
+  5. ★ WATCH the Trust Score card ANIMATE UPWARD in real-time.
+  6. ★ WATCH the Timeline chart add 3 new data points showing the climb.
+  7. ★ WATCH the Risk Radar's "Returns" and "Disputes" axes shrink.
+
+  NARRATIVE: "As this seller completes more successful transactions,
+  TRUSTRA's engine rewards them with a higher trust score in real-time."
+
+──────────────────────────────────────────────────────────────────────────
+DEMO SCENARIO 2: "The Fraud Seller Gets Caught"
+──────────────────────────────────────────────────────────────────────────
+
+  1. Open dashboard → Select FRAUD_SUSPECT_LTD.
+  2. Note the (possibly medium) Trust Score.
+  3. Submit 10 rapid-fire transactions with identical 5-star reviews.
+  4. ★ WATCH the Authenticity score PLUMMET (burst detection triggers).
+  5. ★ WATCH the Trust Score card turn RED and drop significantly.
+  6. ★ WATCH "Why This Score" panel show "Review Burst Detected" factor.
+
+  NARRATIVE: "A seller tries to game the system with fake 5-star reviews.
+  TRUSTRA's Authenticity Model detects the burst pattern and immediately
+  penalizes the trust score."
+
+──────────────────────────────────────────────────────────────────────────
+DEMO SCENARIO 3: "A Dispute Tanks the Score"
+──────────────────────────────────────────────────────────────────────────
+
+  1. Select a healthy seller (score ~800).
+  2. Submit a transaction with status = "disputed", rating = 1 star.
+  3. ★ WATCH the Behavioral Metrics score drop.
+  4. ★ WATCH the Trust Score decrease and Volatility index rise.
+
+  NARRATIVE: "A single dispute can meaningfully impact a seller's
+  trust profile, and TRUSTRA captures this change in real-time."
+
+
+================================================================================
+8.  STEP-BY-STEP EXECUTION TIMELINE
+================================================================================
+
+  PHASE   TASK                                          TIME     STATUS
+  ─────   ──────────────────────────────────────────   ──────   ────────
+  1       Create Supabase project + run init.sql        15 min   [ ]
+  2       Import CSV data into Supabase tables          30 min   [ ]
+  3       Enable Realtime on trust_scores table         5 min    [ ]
+  4       Install Supabase client (backend + frontend)  10 min   [ ]
+  5       Modify backend/server.js:                     90 min   [ ]
+            - Supabase client init
+            - POST /api/transaction endpoint
+            - POST /api/review endpoint
+            - GET /api/trust-history/:sellerId endpoint
+            - Replace fake WebSocket with real emissions
+  6       Modify ml-service/main.py:                    60 min   [ ]
+            - Replace CSV loader with Supabase queries
+            - Wire up real volatility calculation
+            - Wire up temporal decay with real timestamps
+            - Return real risk trend
+  7       Modify graph-service/graph_engine.py:         30 min   [ ]
+            - Supabase data loading
+            - On-demand graph rebuild endpoint
+  8       Create SimulateTransaction.tsx component      45 min   [ ]
+  9       Update dashboard/page.tsx:                    45 min   [ ]
+            - Real timeline from trust_scores history
+            - Real radar data from API
+            - Fix WebSocket to match any sellerId
+            - Add SimulateTransaction panel to layout
+  10      Create seed-supabase.js utility script        30 min   [ ]
+  11      End-to-end testing + demo rehearsal            30 min   [ ]
+  ─────────────────────────────────────────────────────────────
+          TOTAL ESTIMATED TIME                         ~6 hours
+
+
+================================================================================
+9.  APPENDIX: DATABASE SCHEMA (Already in docker/init.sql)
+================================================================================
+
+  TABLE: sellers
+    id                   VARCHAR(50) PRIMARY KEY
+    name                 VARCHAR(255) NOT NULL
+    joined_at            TIMESTAMP NOT NULL
+    baseline_trust_score FLOAT DEFAULT 500.0
+    status               VARCHAR(50) DEFAULT 'active'
+
+  TABLE: buyers
+    id                   VARCHAR(50) PRIMARY KEY
+    name                 VARCHAR(255) NOT NULL
+    joined_at            TIMESTAMP NOT NULL
+
+  TABLE: transactions
+    id                   VARCHAR(50) PRIMARY KEY
+    seller_id            VARCHAR(50) → sellers(id)
+    buyer_id             VARCHAR(50) → buyers(id)
+    amount               DECIMAL(10,2) NOT NULL
+    status               VARCHAR(50) NOT NULL     -- completed/refunded/cancelled/disputed
+    timestamp            TIMESTAMP NOT NULL
+    delivery_time_days   INT
+
+  TABLE: reviews
+    id                   VARCHAR(50) PRIMARY KEY
+    seller_id            VARCHAR(50) → sellers(id)
+    buyer_id             VARCHAR(50) → buyers(id)
+    transaction_id       VARCHAR(50) → transactions(id)
+    rating               INT CHECK (1-5)
+    text                 TEXT
+    timestamp            TIMESTAMP NOT NULL
+
+  TABLE: trust_scores   ← KEY TABLE FOR REAL-TIME HISTORY
+    id                   SERIAL PRIMARY KEY
+    seller_id            VARCHAR(50) → sellers(id)
+    score                FLOAT NOT NULL
+    timestamp            TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+
+================================================================================
+                       END OF IMPLEMENTATION PLAN
+================================================================================
